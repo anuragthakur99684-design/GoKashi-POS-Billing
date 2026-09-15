@@ -5,22 +5,21 @@ const { GoogleGenAI } = require('@google/genai') // Gemini AI SDK Import
 
 const Product = require('./models/Product')
 const Invoice = require('./models/Invoice')
-const authRoutes = require('./routes/auth') // 👈 Step 3: Auth Routes Import
-const authMiddleware = require('./middleware/authMiddleware') // 👈 Step 3: Auth Middleware Import
+const authRoutes = require('./routes/auth')
+const authMiddleware = require('./middleware/authMiddleware')
 
 const app = express()
 const PORT = process.env.PORT || 5000
 
-// Middlewares (Increased payload limit for AI image scanner)
+// Middlewares
 app.use(cors())
 app.use(express.json({ limit: '10mb' }))
 
 // Initialize Gemini AI Client
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || 'YOUR_GEMINI_API_KEY' })
 
-// Database Connection String
-const MONGO_URI =
-  'mongodb+srv://anuragthakur99684_db_user:kjNtfR1W0QH9OY0T@cluster0.wt3vnde.mongodb.net/retailpro_db?retryWrites=true&w=majority&appName=Cluster0'
+// Database Connection String (Reads from Environment Variable or Fallback)
+const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://anuragthakur99684_db_user:kjNtfR1W0QH9OY0T@cluster0.wt3vnde.mongodb.net/retailpro_db?retryWrites=true&w=majority&appName=Cluster0'
 
 mongoose
   .connect(MONGO_URI)
@@ -35,7 +34,7 @@ app.use('/api/auth', authRoutes)
 // GET: Fetch products for logged-in user only
 app.get('/api/products', authMiddleware, async (req, res) => {
   try {
-    const products = await Product.find({ userId: req.userId }) // 👈 Sirf is user ke products
+    const products = await Product.find({ userId: req.userId })
     const formatted = products.map((p) => ({
       id: p._id,
       name: p.name,
@@ -61,7 +60,7 @@ app.post('/api/products', authMiddleware, async (req, res) => {
   try {
     const stockNum = parseInt(stock, 10)
     const newProduct = new Product({
-      userId: req.userId, // 👈 Multi-tenant: Logged-in user ki ID attach ho gayi
+      userId: req.userId,
       name,
       category: category || 'General',
       price: parseFloat(price),
@@ -95,7 +94,7 @@ app.post('/api/invoices', authMiddleware, async (req, res) => {
 
   try {
     const newInvoice = new Invoice({
-      userId: req.userId, // 👈 Multi-tenant invoice link
+      userId: req.userId,
       customerName,
       items,
       totalAmount,
@@ -129,14 +128,13 @@ app.get('/api/invoices', authMiddleware, async (req, res) => {
   }
 })
 
-// --- 🤖 AI ROUTES (Gemini 2.5 Flash Integrated) ---
+// --- 🤖 AI ROUTES (Gemini Integrated) ---
 
-// AI Assistant (Multi-tenant filtered store context)
+// AI Assistant
 app.post('/api/ai/assistant', authMiddleware, async (req, res) => {
   try {
     const { prompt } = req.body
 
-    // Database se strictly Logged-In User ka Data Fetch karein
     const products = await Product.find({ userId: req.userId })
     const invoices = await Invoice.find({ userId: req.userId }).sort({ createdAt: -1 }).limit(15)
 
@@ -211,7 +209,12 @@ app.post('/api/ai/scan-receipt', authMiddleware, async (req, res) => {
   }
 })
 
-// Start Server
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`)
-})
+// Start Server for local testing
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => {
+    console.log(`Server is running on http://localhost:${PORT}`)
+  })
+}
+
+// 💥 VERCEL EXPORT (Crucial for Vercel Serverless Functions)
+module.exports = app;

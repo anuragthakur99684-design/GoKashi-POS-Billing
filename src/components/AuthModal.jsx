@@ -20,9 +20,11 @@ const AuthModal = ({ onLoginSuccess }) => {
     setError('');
 
     const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
+    // Dynamic API Base URL (Vercel ke environment variable se lega, local par fallback '')
+    const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
     try {
-      const res = await fetch(`http://localhost:5000${endpoint}`, {
+      const res = await fetch(`${API_BASE_URL}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
